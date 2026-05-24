@@ -1,0 +1,38 @@
+# Retrieval-Augmented Generation (RAG) Architecture Overview
+
+## Section 1: Introduction to RAG Architecture
+Retrieval-Augmented Generation (RAG) is a technique that combines retrieval models with generative LLMs to answer questions using external knowledge bases. RAG helps mitigate LLM hallucinations by grounding responses in verified source documents. The standard pipeline includes Document Ingestion, Chunking, Embeddings, Vector Indexing, Semantic Retrieval, Prompt Assembly, and Final Generation.
+
+## Section 2: Ingestion and Chunking
+Ingestion is the process of reading raw documentation files (PDFs, Markdown, Word docs, code) and splitting them into smaller segments called chunks. The selection of chunk size is critical:
+- Large chunks (e.g., 1000 tokens) preserve global document context but risk introducing irrelevant information (noise) which can dilute the semantic signal.
+- Small chunks (e.g., 100 tokens) isolate highly specific sentences or facts but lack surrounding semantic context, leading to incomplete or fragmented answers.
+Chunk overlap (e.g., 10% to 20%) is commonly employed to prevent information loss at chunk boundaries.
+
+## Section 3: Embeddings and Vector Search
+Once chunked, each text chunk is processed by an embedding model (such as OpenAI's text-embedding-3-small) to create a dense vector representation. These vectors represent the semantic meaning of the text. Chunks are stored in a vector index (such as FAISS, Chroma, or Pinecone). At query time, the user prompt is embedded using the same model, and a mathematical similarity function (like Cosine Similarity or Dot Product) finds the Top-K closest chunks.
+
+## Section 4: Prompt Construction and Context Injection
+The retrieved Top-K chunks are injected into a system template alongside the user's original query. A typical prompt compiler constructs the final query structure like this:
+```
+System Prompt: You are a helpful assistant. Use only the provided context below to answer.
+Context:
+[Retrieved Chunk 1]
+[Retrieved Chunk 2]
+User Query: [User Question]
+```
+If the retrieved context is missing the answer, a robust system instruction forces the LLM to output "I do not have enough context to answer" rather than hallucinating.
+
+## Section 5: Common RAG Failure Modes
+RAG systems frequently fail due to several key factors:
+1. Retrieval Miss: The target answer exists in the database, but the vector search fails to retrieve it due to poor semantic matching or low Top-K limits.
+2. Context Dilution: The correct chunk is retrieved, but it is buried under multiple irrelevant chunks, causing the LLM to ignore it (often referred to as the 'lost in the middle' phenomenon).
+3. Chunking Fragmentation: The answer spans multiple chunks, but the chunk boundaries split the key data, preventing a unified retrieval.
+4. Hyperparameter Misconfiguration: Setting the temperature too high (e.g., > 0.8) leads the LLM to hallucinate beyond the provided context, even when grounding instructions are present.
+
+## Section 6: Evaluation Metrics
+Evaluating RAG systems requires assessing three core components:
+1. Groundedness (Faithfulness): Is the generated answer fully supported *only* by the retrieved context chunks, without introducing external knowledge?
+2. Answer Relevance: Does the generated answer directly address the user's question?
+3. Retrieval Precision (Context Relevance): Are the retrieved chunks highly relevant to the query, or is the prompt filled with noise?
+Citation coverage measures whether every claim made in the generated answer corresponds to a specific retrieved chunk ID.
